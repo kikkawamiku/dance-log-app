@@ -25,6 +25,7 @@ export interface PostRow {
   created_at: string
   // joined
   profiles: Pick<ProfileRow, "id" | "full_name" | "username" | "avatar_url" | "is_public">
+  likes: { user_id: string }[]
 }
 
 // ── Transformers ──────────────────────────────────────────────
@@ -40,7 +41,7 @@ export function profileRowToUser(row: ProfileRow): User {
   }
 }
 
-export function postRowToPost(row: PostRow): Post {
+export function postRowToPost(row: PostRow, currentUserId?: string): Post {
   const user: User = {
     id: row.profiles.id,
     name: row.profiles.full_name,
@@ -58,7 +59,9 @@ export function postRowToPost(row: PostRow): Post {
     practiceMinutes: row.practice_time ?? undefined,
     genre: row.genre ?? undefined,
     createdAt: row.created_at,
-    likes: 0,   // TODO: join likes count
-    isLiked: false, // TODO: join user like status
+    likes: row.likes?.length ?? 0,
+    isLiked: currentUserId
+      ? (row.likes?.some(l => l.user_id === currentUserId) ?? false)
+      : false,
   }
 }

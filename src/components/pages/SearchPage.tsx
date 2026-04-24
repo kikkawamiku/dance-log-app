@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import Link from "next/link"
 import { User } from "@/lib/types"
 import { createClient } from "@/lib/supabase/client"
 import { profileRowToUser, ProfileRow } from "@/lib/supabase/db-types"
@@ -132,14 +133,16 @@ function UserRow({
 }) {
   return (
     <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-50">
-      <Avatar user={user} />
-      <div className="flex-1 min-w-0">
-        <p className="font-semibold text-gray-900 text-sm leading-tight">{user.name}</p>
-        <p className="text-gray-400 text-xs">@{user.username}</p>
-        {user.bio && (
-          <p className="text-gray-500 text-xs mt-0.5 truncate">{user.bio}</p>
-        )}
-      </div>
+      <Link href={`/profile/${user.id}`} className="flex items-center gap-3 flex-1 min-w-0">
+        <Avatar user={user} />
+        <div className="min-w-0">
+          <p className="font-semibold text-gray-900 text-sm leading-tight">{user.name}</p>
+          <p className="text-gray-400 text-xs">@{user.username}</p>
+          {user.bio && (
+            <p className="text-gray-500 text-xs mt-0.5 truncate">{user.bio}</p>
+          )}
+        </div>
+      </Link>
       <button
         onClick={onToggle}
         className={`flex-shrink-0 text-xs font-semibold px-4 py-1.5 rounded-full transition-colors ${
