@@ -1,7 +1,6 @@
 "use client"
 
 import { Post } from "@/lib/types"
-import { allPosts } from "@/lib/mockData"
 
 // ─── Data helpers ────────────────────────────────────────────────
 
@@ -32,9 +31,7 @@ interface Props {
 }
 
 export default function ReportPage({ userPosts }: Props) {
-  // Use user's own posts; fall back to sample feed data if empty for demo
-  const sourcePosts = userPosts.length > 0 ? userPosts : allPosts
-  const isDemo = userPosts.length === 0
+  const sourcePosts = userPosts
 
   const byDate = sumByDate(sourcePosts)
   const days = getLast14Days()
@@ -55,11 +52,6 @@ export default function ReportPage({ userPosts }: Props) {
       <header className="sticky top-0 z-30 bg-white border-b border-gray-100">
         <div className="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
           <h1 className="text-lg font-bold text-gray-900">レポート</h1>
-          {isDemo && (
-            <span className="text-[10px] bg-amber-50 text-amber-600 font-medium px-2 py-0.5 rounded-full">
-              サンプルデータ
-            </span>
-          )}
         </div>
       </header>
 

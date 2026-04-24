@@ -1,8 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { User } from "@/lib/types"
-import { allUsers } from "@/lib/mockData"
+import { createClient } from "@/lib/supabase/client"
+import { profileRowToUser, ProfileRow } from "@/lib/supabase/db-types"
 import { useCurrentUser } from "@/contexts/UserContext"
 import Avatar from "@/components/Avatar"
 
@@ -13,14 +14,41 @@ interface Props {
 
 export default function SearchPage({ following, onToggleFollow }: Props) {
   const currentUser = useCurrentUser()
+  const supabase = createClient()
   const [query, setQuery] = useState("")
+  const [results, setResults] = useState<User[]>([])
+  const [loading, setLoading] = useState(false)
 
-  const results = allUsers.filter((u) => {
-    if (u.id === currentUser.id) return false
-    if (!query.trim()) return true
-    const q = query.toLowerCase()
-    return u.name.includes(query) || u.username.toLowerCase().includes(q)
-  })
+  const search = useCallback(async (q: string) => {
+    setLoading(true)
+    try {
+      let req = supabase
+        .from("profiles")
+        .select("*")
+        .neq("id", currentUser.id)
+        .eq("is_public", true)
+        .limit(30)
+
+      if (q.trim()) {
+        req = req.or(`full_name.ilike.%${q}%,username.ilike.%${q}%`)
+      }
+
+      const { data, error } = await req
+      if (error) {
+        console.error("[SearchPage] profiles fetch error:", error)
+        setResults([])
+      } else {
+        setResults((data as ProfileRow[]).map(profileRowToUser))
+      }
+    } finally {
+      setLoading(false)
+    }
+  }, [currentUser.id, supabase])
+
+  useEffect(() => {
+    const timer = setTimeout(() => search(query), query ? 300 : 0)
+    return () => clearTimeout(timer)
+  }, [query, search])
 
   return (
     <>
@@ -51,29 +79,43 @@ export default function SearchPage({ following, onToggleFollow }: Props) {
       </header>
 
       <main className="max-w-md mx-auto pb-24">
-        {/* Section header */}
         {!query && (
           <p className="px-4 pt-4 pb-2 text-xs font-semibold text-gray-400 uppercase tracking-wide">
             ダンサーを探す
           </p>
         )}
-        {query && results.length === 0 && (
+
+        {loading && (
+          <div className="text-center py-16 text-gray-400 text-sm">
+            読み込み中...
+          </div>
+        )}
+
+        {!loading && query && results.length === 0 && (
           <div className="text-center py-16 text-gray-400 text-sm">
             <p className="text-3xl mb-3">🔍</p>
             <p>「{query}」に一致するユーザーが見つかりません</p>
           </div>
         )}
 
-        <div className="bg-white">
-          {results.map((user) => (
-            <UserRow
-              key={user.id}
-              user={user}
-              isFollowing={following.has(user.id)}
-              onToggle={() => onToggleFollow(user.id)}
-            />
-          ))}
-        </div>
+        {!loading && !query && results.length === 0 && (
+          <div className="text-center py-16 text-gray-400 text-sm">
+            まだユーザーがいません
+          </div>
+        )}
+
+        {!loading && (
+          <div className="bg-white">
+            {results.map((user) => (
+              <UserRow
+                key={user.id}
+                user={user}
+                isFollowing={following.has(user.id)}
+                onToggle={() => onToggleFollow(user.id)}
+              />
+            ))}
+          </div>
+        )}
       </main>
     </>
   )

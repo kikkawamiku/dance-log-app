@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import { Post } from "@/lib/types"
-import { followingIds as initialFollowingIds } from "@/lib/mockData"
 import { useCurrentUser, useUser } from "@/contexts/UserContext"
 import AuthGate from "@/components/AuthGate"
 import BottomNav, { Tab } from "@/components/BottomNav"
@@ -34,7 +33,7 @@ function AppContent() {
   const [showCreate, setShowCreate] = useState(false)
   const [showEdit, setShowEdit] = useState(false)
   const [newPosts, setNewPosts] = useState<Post[]>([])
-  const [following, setFollowing] = useState<Set<string>>(new Set(initialFollowingIds))
+  const [following, setFollowing] = useState<Set<string>>(new Set())
 
   function handleNewPost(post: Post) {
     setNewPosts((prev) => [post, ...prev])
