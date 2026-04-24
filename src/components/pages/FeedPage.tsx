@@ -11,9 +11,10 @@ import Fab from "@/components/Fab"
 interface Props {
   newPosts: Post[]
   onOpenCreate: () => void
+  followVersion: number
 }
 
-export default function FeedPage({ newPosts, onOpenCreate }: Props) {
+export default function FeedPage({ newPosts, onOpenCreate, followVersion }: Props) {
   const user = useCurrentUser()
   const [posts, setPosts] = useState<Post[]>([])
   const [hasMore, setHasMore] = useState(true)
@@ -50,7 +51,7 @@ export default function FeedPage({ newPosts, onOpenCreate }: Props) {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [user?.id]
+    [user?.id, followVersion]
   )
 
   useEffect(() => {

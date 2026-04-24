@@ -65,6 +65,29 @@ export async function fetchFeedPage(
   }
 }
 
+// ── User posts ───────────────────────────────────────────────
+
+/**
+ * Fetch all posts by a specific user, newest first.
+ */
+export async function fetchUserPosts(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<Post[]> {
+  const { data, error } = await supabase
+    .from("posts")
+    .select(POST_SELECT)
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+
+  if (error) {
+    console.error("[fetchUserPosts] error:", error)
+    throw error
+  }
+
+  return ((data ?? []) as unknown as PostRow[]).map(postRowToPost)
+}
+
 // ── Create ────────────────────────────────────────────────────
 
 export interface CreatePostInput {

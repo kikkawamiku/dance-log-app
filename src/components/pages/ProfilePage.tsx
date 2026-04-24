@@ -1,19 +1,37 @@
 "use client"
 
+import { useState, useEffect, useRef } from "react"
 import { Post } from "@/lib/types"
 import { useCurrentUser } from "@/contexts/UserContext"
+import { createClient } from "@/lib/supabase/client"
+import { fetchUserPosts } from "@/lib/supabase/posts"
 import Avatar from "@/components/Avatar"
 import PostCard from "@/components/PostCard"
 
 interface Props {
-  userPosts: Post[]
+  newPosts: Post[]
   following: Set<string>
   onOpenEdit: () => void
   onSignOut: () => void
 }
 
-export default function ProfilePage({ userPosts, following, onOpenEdit, onSignOut }: Props) {
+export default function ProfilePage({ newPosts, following, onOpenEdit, onSignOut }: Props) {
   const user = useCurrentUser()
+  const supabase = useRef(createClient()).current
+  const [dbPosts, setDbPosts] = useState<Post[]>([])
+  const [loadingPosts, setLoadingPosts] = useState(true)
+
+  useEffect(() => {
+    setLoadingPosts(true)
+    fetchUserPosts(supabase, user.id)
+      .then(setDbPosts)
+      .catch(err => console.error("[ProfilePage] posts fetch error:", err))
+      .finally(() => setLoadingPosts(false))
+  }, [user.id, supabase])
+
+  // Merge session posts with DB posts, dedup by id
+  const newPostIds = new Set(newPosts.map(p => p.id))
+  const allPosts = [...newPosts, ...dbPosts.filter(p => !newPostIds.has(p.id))]
 
   return (
     <>
@@ -61,13 +79,17 @@ export default function ProfilePage({ userPosts, following, onOpenEdit, onSignOu
           </div>
 
           <div className="flex gap-10 pt-1">
-            <Stat value={userPosts.length} label="投稿" />
-            <Stat value={following.size} label="フォロー中" />
+            <Stat value={loadingPosts ? "-" : String(allPosts.length)} label="投稿" />
+            <Stat value={String(following.size)} label="フォロー中" />
           </div>
         </div>
 
         {/* ── Posts ── */}
-        {userPosts.length === 0 ? (
+        {loadingPosts ? (
+          <div className="flex justify-center py-16">
+            <div className="w-6 h-6 border-2 border-rose-300 border-t-rose-500 rounded-full animate-spin" />
+          </div>
+        ) : allPosts.length === 0 ? (
           <div className="text-center py-16 text-gray-400 text-sm">
             <p className="text-3xl mb-3">💃</p>
             <p>まだ投稿がありません</p>
@@ -75,7 +97,7 @@ export default function ProfilePage({ userPosts, following, onOpenEdit, onSignOu
           </div>
         ) : (
           <div>
-            {userPosts.map((post) => (
+            {allPosts.map((post) => (
               <PostCard key={post.id} post={post} />
             ))}
           </div>
@@ -85,7 +107,7 @@ export default function ProfilePage({ userPosts, following, onOpenEdit, onSignOu
   )
 }
 
-function Stat({ value, label }: { value: number; label: string }) {
+function Stat({ value, label }: { value: string; label: string }) {
   return (
     <div className="text-center">
       <p className="font-bold text-gray-900 text-base">{value}</p>

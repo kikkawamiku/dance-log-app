@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { Post } from "@/lib/types"
 import { useCurrentUser, useUser } from "@/contexts/UserContext"
+import { useFollows } from "@/hooks/useFollows"
 import AuthGate from "@/components/AuthGate"
 import BottomNav, { Tab } from "@/components/BottomNav"
 import CreatePostModal from "@/components/CreatePostModal"
@@ -33,25 +34,17 @@ function AppContent() {
   const [showCreate, setShowCreate] = useState(false)
   const [showEdit, setShowEdit] = useState(false)
   const [newPosts, setNewPosts] = useState<Post[]>([])
-  const [following, setFollowing] = useState<Set<string>>(new Set())
+  const { following, followVersion, toggleFollow } = useFollows(user.id)
 
   function handleNewPost(post: Post) {
     setNewPosts((prev) => [post, ...prev])
     setTab("feed")
   }
 
-  function toggleFollow(userId: string) {
-    setFollowing((prev) => {
-      const next = new Set(prev)
-      next.has(userId) ? next.delete(userId) : next.add(userId)
-      return next
-    })
-  }
-
   return (
     <div className="min-h-screen bg-gray-50">
       {tab === "feed" && (
-        <FeedPage newPosts={newPosts} onOpenCreate={() => setShowCreate(true)} />
+        <FeedPage newPosts={newPosts} onOpenCreate={() => setShowCreate(true)} followVersion={followVersion} />
       )}
 
       {tab === "report" && <ReportPage userPosts={newPosts} />}
@@ -62,7 +55,7 @@ function AppContent() {
 
       {tab === "profile" && (
         <ProfilePage
-          userPosts={newPosts}
+          newPosts={newPosts}
           following={following}
           onOpenEdit={() => setShowEdit(true)}
           onSignOut={signOut}
