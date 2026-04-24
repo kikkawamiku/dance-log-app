@@ -1,7 +1,7 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, useRef, ReactNode } from "react"
-import { Session } from "@supabase/supabase-js"
+import { AuthChangeEvent, Session } from "@supabase/supabase-js"
 import { User } from "@/lib/types"
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client"
 import { ProfileRow, profileRowToUser } from "@/lib/supabase/db-types"
@@ -53,7 +53,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     // cookie-stored session — no separate getSession() call needed.
     // Removing getSession() eliminates the race that caused double-calls.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, newSession) => {
+      (_event: AuthChangeEvent, newSession: Session | null) => {
         setSession(newSession)
         if (newSession) {
           setAuthError(null)
