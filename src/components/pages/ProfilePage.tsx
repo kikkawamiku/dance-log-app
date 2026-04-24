@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client"
 import { fetchUserPosts } from "@/lib/supabase/posts"
 import Avatar from "@/components/Avatar"
 import PostCard from "@/components/PostCard"
+import { PostCardSkeletonList } from "@/components/Skeleton"
 
 interface Props {
   newPosts: Post[]
@@ -86,9 +87,7 @@ export default function ProfilePage({ newPosts, following, onOpenEdit, onSignOut
 
         {/* ── Posts ── */}
         {loadingPosts ? (
-          <div className="flex justify-center py-16">
-            <div className="w-6 h-6 border-2 border-rose-300 border-t-rose-500 rounded-full animate-spin" />
-          </div>
+          <PostCardSkeletonList count={3} />
         ) : allPosts.length === 0 ? (
           <div className="text-center py-16 text-gray-400 text-sm">
             <p className="text-3xl mb-3">💃</p>

@@ -5,6 +5,7 @@ import { Post } from "@/lib/types"
 import { useCurrentUser } from "@/contexts/UserContext"
 import { createClient } from "@/lib/supabase/client"
 import { fetchUserPosts } from "@/lib/supabase/posts"
+import { ReportSkeleton } from "@/components/Skeleton"
 
 function getLast14Days(): { dateStr: string; label: string }[] {
   return Array.from({ length: 14 }, (_, i) => {
@@ -68,9 +69,7 @@ export default function ReportPage({ userPosts }: Props) {
 
       <main className="max-w-md mx-auto pb-24">
         {loading ? (
-          <div className="flex justify-center py-16">
-            <div className="w-6 h-6 border-2 border-rose-300 border-t-rose-500 rounded-full animate-spin" />
-          </div>
+          <ReportSkeleton />
         ) : (
           <>
             {/* ── Stats cards ── */}

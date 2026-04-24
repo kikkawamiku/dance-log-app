@@ -11,6 +11,7 @@ import AuthGate from "@/components/AuthGate"
 import Avatar from "@/components/Avatar"
 import PostCard from "@/components/PostCard"
 import EditProfileModal from "@/components/EditProfileModal"
+import { ProfileHeaderSkeleton, PostCardSkeletonList } from "@/components/Skeleton"
 
 export default function ProfileUserPage({
   params,
@@ -94,8 +95,19 @@ function ProfileContent({ userId }: { userId: string }) {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center min-h-screen bg-gray-50">
-        <div className="w-6 h-6 border-2 border-rose-300 border-t-rose-500 rounded-full animate-spin" />
+      <div className="min-h-screen bg-gray-50">
+        <header className="sticky top-0 z-30 bg-white border-b border-gray-100">
+          <div className="max-w-md mx-auto px-4 py-3 flex items-center gap-3">
+            <button onClick={() => router.back()} className="text-gray-500 p-1 -ml-1">
+              <BackIcon />
+            </button>
+            <div className="h-4 w-28 bg-gray-200 rounded-full animate-pulse" />
+          </div>
+        </header>
+        <main className="max-w-md mx-auto">
+          <ProfileHeaderSkeleton />
+          <PostCardSkeletonList count={3} />
+        </main>
       </div>
     )
   }

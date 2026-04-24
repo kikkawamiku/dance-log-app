@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client"
 import { fetchFeedPage } from "@/lib/supabase/posts"
 import Feed from "@/components/Feed"
 import Fab from "@/components/Fab"
+import { PostCardSkeletonList } from "@/components/Skeleton"
 
 interface Props {
   newPosts: Post[]
@@ -73,9 +74,7 @@ export default function FeedPage({ newPosts, onOpenCreate, followVersion }: Prop
 
       <main className="max-w-md mx-auto bg-white min-h-screen pb-24">
         {initialLoading ? (
-          <div className="flex justify-center py-16">
-            <div className="w-6 h-6 border-2 border-rose-300 border-t-rose-500 rounded-full animate-spin" />
-          </div>
+          <PostCardSkeletonList count={5} />
         ) : loadError ? (
           <div className="text-center py-16 px-6">
             <p className="text-2xl mb-3">⚠️</p>
