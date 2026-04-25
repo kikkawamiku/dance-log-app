@@ -1,7 +1,10 @@
 "use client"
 
-import { useState, useRef, useCallback, ChangeEvent } from "react"
+import { useState, useRef, useEffect, useCallback, ChangeEvent } from "react"
+import imageCompression from "browser-image-compression"
 import { useCurrentUser, useUser, UserProfile } from "@/contexts/UserContext"
+import { createClient } from "@/lib/supabase/client"
+import { uploadAvatarImage } from "@/lib/supabase/storage"
 import Avatar from "./Avatar"
 import {
   validateName,
@@ -9,6 +12,14 @@ import {
   validateAvatarUrl,
   checkPasswordStrength,
 } from "@/lib/validation"
+
+const COMPRESS_OPTIONS = {
+  maxWidthOrHeight: 400,
+  fileType: "image/webp",
+  maxSizeMB: 1,
+  useWebWorker: true,
+  initialQuality: 0.85,
+} as const
 
 interface FormErrors {
   name?: string
@@ -22,13 +33,28 @@ interface FormErrors {
 export default function EditProfileModal({ onClose }: { onClose: () => void }) {
   const user = useCurrentUser()
   const { updateProfile, updatePassword, checkPassword } = useUser()
+  const supabase = useRef(createClient()).current
 
   const [name, setName] = useState(user.name)
   const [username, setUsername] = useState(user.username)
   const [bio, setBio] = useState(user.bio ?? "")
-  const [avatarUrl, setAvatarUrl] = useState(user.avatarUrl ?? "")
-  const [avatarPreview, setAvatarPreview] = useState(user.avatarUrl ?? "")
+
+  // avatarUrl: the URL input field (blank if file was selected, or if stored as data:)
+  const existingUrl = user.avatarUrl?.startsWith("data:") ? "" : (user.avatarUrl ?? "")
+  const [avatarUrl, setAvatarUrl] = useState(existingUrl)
+  // avatarPreview: what Avatar component shows (blob: for local file, https: for saved, "" for none)
+  const [avatarPreview, setAvatarPreview] = useState(user.avatarUrl?.startsWith("data:") ? "" : (user.avatarUrl ?? ""))
+  // pendingFile: compressed WebP File waiting to be uploaded on save
+  const [pendingFile, setPendingFile] = useState<File | null>(null)
+  const [compressing, setCompressing] = useState(false)
+  const blobUrlRef = useRef<string | null>(null)
+
   const [isPrivate, setIsPrivate] = useState(user.isPrivate ?? false)
+
+  // Revoke blob URL on unmount to avoid memory leaks
+  useEffect(() => {
+    return () => { if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current) }
+  }, [])
 
   const [showPassword, setShowPassword] = useState(false)
   const [currentPassword, setCurrentPassword] = useState("")
@@ -49,18 +75,35 @@ export default function EditProfileModal({ onClose }: { onClose: () => void }) {
   function handleUrlChange(url: string) {
     setAvatarUrl(url)
     setAvatarPreview(url)
+    setPendingFile(null)
   }
 
-  function handleFileUpload(e: ChangeEvent<HTMLInputElement>) {
+  async function handleFileUpload(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    const reader = new FileReader()
-    reader.onload = (ev) => {
-      const dataUrl = ev.target?.result as string
-      setAvatarUrl(dataUrl)
-      setAvatarPreview(dataUrl)
+    // Reset so the same file can be re-selected
+    e.target.value = ""
+
+    setCompressing(true)
+    setErrors(prev => ({ ...prev, avatarUrl: undefined }))
+    try {
+      const compressed = await imageCompression(file, COMPRESS_OPTIONS)
+      const webp = new File([compressed], `avatar_${Date.now()}.webp`, { type: "image/webp" })
+
+      // Revoke previous blob URL before creating a new one
+      if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current)
+      const blobUrl = URL.createObjectURL(webp)
+      blobUrlRef.current = blobUrl
+
+      setPendingFile(webp)
+      setAvatarPreview(blobUrl)
+      setAvatarUrl("")
+    } catch (err) {
+      console.error("[EditProfileModal] compression error:", err)
+      setErrors(prev => ({ ...prev, avatarUrl: "画像の圧縮に失敗しました" }))
+    } finally {
+      setCompressing(false)
     }
-    reader.readAsDataURL(file)
   }
 
   // ─── Validation ───────────────────────────────────────────────
@@ -109,11 +152,23 @@ export default function EditProfileModal({ onClose }: { onClose: () => void }) {
 
     setSaving(true)
 
+    // Upload pending avatar file first (compress already done at pick time)
+    let finalAvatarUrl: string | undefined = avatarUrl || (user.avatarUrl?.startsWith("data:") ? undefined : user.avatarUrl)
+    if (pendingFile) {
+      try {
+        finalAvatarUrl = await uploadAvatarImage(supabase, user.id, pendingFile)
+      } catch (err) {
+        setErrors({ avatarUrl: err instanceof Error ? err.message : "アップロードに失敗しました" })
+        setSaving(false)
+        return
+      }
+    }
+
     const updates: Partial<UserProfile> = {
       name: name.trim(),
       username: username.trim(),
       bio: bio.trim(),
-      avatarUrl: avatarPreview || undefined,
+      avatarUrl: finalAvatarUrl || undefined,
       isPrivate,
     }
 
@@ -131,7 +186,7 @@ export default function EditProfileModal({ onClose }: { onClose: () => void }) {
 
   // ─── Helpers ──────────────────────────────────────────────────
 
-  const previewUser = { ...user, name, username, avatarUrl: avatarPreview || user.avatarUrl }
+  const previewUser = { ...user, name, username, avatarUrl: avatarPreview || undefined }
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-white">
@@ -158,9 +213,17 @@ export default function EditProfileModal({ onClose }: { onClose: () => void }) {
           <div className="flex gap-2">
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-1.5 border border-gray-200 text-gray-700 text-xs font-medium px-3 py-2 rounded-full"
+              disabled={compressing}
+              className="flex items-center gap-1.5 border border-gray-200 text-gray-700 text-xs font-medium px-3 py-2 rounded-full disabled:opacity-50"
             >
-              <UploadIcon /> 画像をアップロード
+              {compressing ? (
+                <>
+                  <span className="w-3 h-3 border border-gray-400 border-t-transparent rounded-full animate-spin" />
+                  圧縮中…
+                </>
+              ) : (
+                <><UploadIcon /> 画像をアップロード</>
+              )}
             </button>
             <input
               ref={fileInputRef}

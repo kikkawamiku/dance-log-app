@@ -35,17 +35,32 @@ export default function Avatar({ user, size = "md" }: { user: User; size?: Size 
   const px = SIZE_PX[size]
 
   if (user.avatarUrl && !imgError) {
-    return (
-      <Image
-        src={user.avatarUrl}
-        alt={user.name}
-        width={px}
-        height={px}
-        sizes={`${px}px`}
-        className={`${sizeClass} rounded-full object-cover flex-shrink-0`}
-        onError={() => setImgError(true)}
-      />
-    )
+    // data: URLs are legacy (old implementation stored base64) — skip to initials
+    if (!user.avatarUrl.startsWith("data:")) {
+      // blob: URLs are local previews; bypass next/image optimization
+      if (user.avatarUrl.startsWith("blob:")) {
+        return (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={user.avatarUrl}
+            alt={user.name}
+            className={`${sizeClass} rounded-full object-cover flex-shrink-0`}
+            onError={() => setImgError(true)}
+          />
+        )
+      }
+      return (
+        <Image
+          src={user.avatarUrl}
+          alt={user.name}
+          width={px}
+          height={px}
+          sizes={`${px}px`}
+          className={`${sizeClass} rounded-full object-cover flex-shrink-0`}
+          onError={() => setImgError(true)}
+        />
+      )
+    }
   }
 
   return (

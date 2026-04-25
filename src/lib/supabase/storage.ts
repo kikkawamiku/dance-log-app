@@ -1,6 +1,7 @@
 import { SupabaseClient } from "@supabase/supabase-js"
 
 const BUCKET = "post-images"
+const AVATAR_BUCKET = "avatars"
 const MAX_SIZE_MB = 10
 
 export class StorageError extends Error {}
@@ -35,6 +36,34 @@ export async function uploadPostImage(
 
   const { data } = supabase.storage.from(BUCKET).getPublicUrl(path)
   return data.publicUrl
+}
+
+/**
+ * Upload a compressed WebP avatar to the `avatars` bucket.
+ * Always overwrites the same path (upsert) so old files don't accumulate.
+ * Appends ?v=<timestamp> to bust CDN cache after updates.
+ *
+ * @returns Public URL (with cache-buster) of the uploaded avatar
+ */
+export async function uploadAvatarImage(
+  supabase: SupabaseClient,
+  userId: string,
+  file: File
+): Promise<string> {
+  const path = `${userId}/avatar.webp`
+
+  const { error } = await supabase.storage
+    .from(AVATAR_BUCKET)
+    .upload(path, file, {
+      cacheControl: "3600",
+      upsert: true,
+      contentType: "image/webp",
+    })
+
+  if (error) throw new StorageError(`アバターのアップロードに失敗しました: ${error.message}`)
+
+  const { data } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(path)
+  return `${data.publicUrl}?v=${Date.now()}`
 }
 
 /**
