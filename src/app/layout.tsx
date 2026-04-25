@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { UserProvider } from "@/contexts/UserContext";
+import SWRProvider from "@/components/SWRProvider";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -35,7 +36,9 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <UserProvider>{children}</UserProvider>
+        <SWRProvider>
+          <UserProvider>{children}</UserProvider>
+        </SWRProvider>
       </body>
     </html>
   );

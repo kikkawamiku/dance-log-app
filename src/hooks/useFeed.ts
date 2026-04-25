@@ -33,8 +33,9 @@ export function useFeed(userId: string, followVersion: number) {
       revalidateOnFocus: false,
       revalidateFirstPage: false,
       revalidateAll: false,
-      // Keep last 3 pages in cache between mounts
       initialSize: 1,
+      // Show stale feed while new feed loads (e.g. after follow/unfollow)
+      keepPreviousData: true,
     }
   )
 

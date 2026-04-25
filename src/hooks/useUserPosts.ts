@@ -63,7 +63,7 @@ export function useAllUserPosts(userId: string) {
   const { data, isLoading, error } = useSWR<Post[]>(
     userId ? ["allUserPosts", userId] : null,
     () => fetchUserPosts(supabase, userId, userId),
-    { revalidateOnFocus: false }
+    { revalidateOnFocus: false, keepPreviousData: true }
   )
 
   return {

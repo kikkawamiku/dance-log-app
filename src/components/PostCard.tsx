@@ -1,10 +1,12 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useCallback } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
+import { preload } from "swr"
 import { Post } from "@/lib/types"
+import { fetchUserPostsPage } from "@/lib/supabase/posts"
 import { useUser } from "@/contexts/UserContext"
 import { createClient } from "@/lib/supabase/client"
 import { updatePost, deletePost, toggleLike as persistLike } from "@/lib/supabase/posts"
@@ -45,6 +47,17 @@ export default function PostCard({ post }: { post: Post }) {
   const supabase = useRef(createClient()).current
   const router = useRouter()
   const isOwner = currentUser?.id === post.user.id
+
+  const handleProfileHover = useCallback(() => {
+    const href = `/profile/${post.user.id}`
+    router.prefetch(href)
+    const cuid = currentUser?.id ?? ""
+    preload(
+      ["userPostsPage", post.user.id, cuid, ""] as const,
+      ([, uid, cu]: readonly [string, string, string, string]) =>
+        fetchUserPostsPage(supabase, uid, cu || undefined, undefined)
+    )
+  }, [post.user.id, currentUser?.id, router, supabase])
 
   // Like state
   const [liked, setLiked] = useState(post.isLiked)
@@ -119,7 +132,7 @@ export default function PostCard({ post }: { post: Post }) {
         <Link
           href={`/profile/${post.user.id}`}
           className="flex items-center gap-3 flex-1 min-w-0"
-          onMouseEnter={() => router.prefetch(`/profile/${post.user.id}`)}
+          onMouseEnter={handleProfileHover}
         >
           <Avatar user={post.user} />
           <div className="min-w-0">

@@ -1,8 +1,10 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { preload } from "swr"
+import { fetchUserPostsPage } from "@/lib/supabase/posts"
 import { User } from "@/lib/types"
 import { createClient } from "@/lib/supabase/client"
 import { profileRowToUser, ProfileRow, PROFILE_SELECT } from "@/lib/supabase/db-types"
@@ -16,7 +18,8 @@ interface Props {
 
 export default function SearchPage({ following, onToggleFollow }: Props) {
   const currentUser = useCurrentUser()
-  const supabase = createClient()
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
   const [query, setQuery] = useState("")
   const [results, setResults] = useState<User[]>([])
   const [loading, setLoading] = useState(false)
@@ -114,6 +117,7 @@ export default function SearchPage({ following, onToggleFollow }: Props) {
                 user={user}
                 isFollowing={following.has(user.id)}
                 onToggle={() => onToggleFollow(user.id)}
+                currentUserId={currentUser.id}
               />
             ))}
           </div>
@@ -127,18 +131,31 @@ function UserRow({
   user,
   isFollowing,
   onToggle,
+  currentUserId,
 }: {
   user: User
   isFollowing: boolean
   onToggle: () => void
+  currentUserId: string
 }) {
   const router = useRouter()
+  const supabase = useRef(createClient()).current
+
+  const handleHover = useCallback(() => {
+    router.prefetch(`/profile/${user.id}`)
+    preload(
+      ["userPostsPage", user.id, currentUserId, ""] as const,
+      ([, uid, cu]: readonly [string, string, string, string]) =>
+        fetchUserPostsPage(supabase, uid, cu || undefined, undefined)
+    )
+  }, [user.id, currentUserId, router, supabase])
+
   return (
     <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-50">
       <Link
         href={`/profile/${user.id}`}
         className="flex items-center gap-3 flex-1 min-w-0"
-        onMouseEnter={() => router.prefetch(`/profile/${user.id}`)}
+        onMouseEnter={handleHover}
       >
         <Avatar user={user} />
         <div className="min-w-0">
