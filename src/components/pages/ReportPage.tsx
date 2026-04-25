@@ -1,10 +1,8 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
 import { Post } from "@/lib/types"
 import { useCurrentUser } from "@/contexts/UserContext"
-import { createClient } from "@/lib/supabase/client"
-import { fetchUserPosts } from "@/lib/supabase/posts"
+import { useAllUserPosts } from "@/hooks/useUserPosts"
 import { ReportSkeleton } from "@/components/Skeleton"
 
 function getLast14Days(): { dateStr: string; label: string }[] {
@@ -35,18 +33,9 @@ interface Props {
 
 export default function ReportPage({ userPosts }: Props) {
   const currentUser = useCurrentUser()
-  const supabase = useRef(createClient()).current
-  const [dbPosts, setDbPosts] = useState<Post[]>([])
-  const [loading, setLoading] = useState(true)
+  const { posts: dbPosts, loading } = useAllUserPosts(currentUser.id)
 
-  useEffect(() => {
-    fetchUserPosts(supabase, currentUser.id, currentUser.id)
-      .then(setDbPosts)
-      .catch((err: unknown) => console.error("[ReportPage] fetch error:", err))
-      .finally(() => setLoading(false))
-  }, [currentUser.id, supabase])
-
-  // Merge: session posts first, then DB posts (dedup by id)
+  // Merge: session posts first, then cached DB posts (dedup by id)
   const sessionIds = new Set(userPosts.map(p => p.id))
   const allPosts = [...userPosts, ...dbPosts.filter(p => !sessionIds.has(p.id))]
 

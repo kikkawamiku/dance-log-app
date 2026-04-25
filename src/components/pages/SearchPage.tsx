@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { User } from "@/lib/types"
 import { createClient } from "@/lib/supabase/client"
-import { profileRowToUser, ProfileRow } from "@/lib/supabase/db-types"
+import { profileRowToUser, ProfileRow, PROFILE_SELECT } from "@/lib/supabase/db-types"
 import { useCurrentUser } from "@/contexts/UserContext"
 import Avatar from "@/components/Avatar"
 
@@ -25,7 +25,7 @@ export default function SearchPage({ following, onToggleFollow }: Props) {
     try {
       let req = supabase
         .from("profiles")
-        .select("*")
+        .select(PROFILE_SELECT)
         .neq("id", currentUser.id)
         .eq("is_public", true)
         .limit(30)

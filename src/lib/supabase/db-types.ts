@@ -1,5 +1,8 @@
 import { Post, User } from "@/lib/types"
 
+// Explicit column list — avoids over-fetching when select("*") would pull unused columns
+export const PROFILE_SELECT = "id, username, full_name, bio, avatar_url, is_public" as const
+
 // ── DB row shapes (snake_case from Supabase) ──────────────────
 
 export interface ProfileRow {
@@ -9,7 +12,7 @@ export interface ProfileRow {
   bio: string | null
   avatar_url: string | null
   is_public: boolean
-  created_at: string
+  created_at?: string  // not always fetched; omit from PROFILE_SELECT
 }
 
 export interface PostRow {

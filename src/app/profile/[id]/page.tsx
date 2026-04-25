@@ -3,13 +3,13 @@
 import { use, useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
-import { profileRowToUser, ProfileRow } from "@/lib/supabase/db-types"
-import { fetchUserPosts } from "@/lib/supabase/posts"
-import { User, Post } from "@/lib/types"
+import { profileRowToUser, ProfileRow, PROFILE_SELECT } from "@/lib/supabase/db-types"
+import { User } from "@/lib/types"
 import { useCurrentUser } from "@/contexts/UserContext"
+import { useUserPostsInfinite } from "@/hooks/useUserPosts"
 import AuthGate from "@/components/AuthGate"
 import Avatar from "@/components/Avatar"
-import PostCard from "@/components/PostCard"
+import Feed from "@/components/Feed"
 import EditProfileModal from "@/components/EditProfileModal"
 import { ProfileHeaderSkeleton, PostCardSkeletonList } from "@/components/Skeleton"
 
@@ -32,27 +32,31 @@ function ProfileContent({ userId }: { userId: string }) {
   const supabase = useRef(createClient()).current
   const isOwnProfile = currentUser.id === userId
 
+  // Profile metadata (name, bio, etc.) — separate from posts
   const [profile, setProfile] = useState<User | null>(null)
-  const [posts, setPosts] = useState<Post[]>([])
+  const [profileLoading, setProfileLoading] = useState(true)
   const [isFollowing, setIsFollowing] = useState(false)
   const [followLoading, setFollowLoading] = useState(false)
-  const [loading, setLoading] = useState(true)
   const [showEdit, setShowEdit] = useState(false)
 
+  // Paginated posts via SWR cache
+  const { posts, hasMore, initialLoading, loadingMore, loadMore } = useUserPostsInfinite(
+    userId,
+    currentUser.id
+  )
+
+  // Fetch profile metadata + follow status in parallel (no posts — those come from SWR)
   useEffect(() => {
-    setLoading(true)
+    setProfileLoading(true)
+
     const profilePromise = supabase
       .from("profiles")
-      .select("*")
+      .select(PROFILE_SELECT)
       .eq("id", userId)
       .single()
       .then(({ data, error }: { data: ProfileRow | null; error: { message: string } | null }) => {
         if (!error && data) setProfile(profileRowToUser(data))
       })
-
-    const postsPromise = fetchUserPosts(supabase, userId, currentUser.id)
-      .then(setPosts)
-      .catch((err: unknown) => console.error("[ProfileUserPage] posts:", err))
 
     const followPromise = isOwnProfile
       ? Promise.resolve()
@@ -64,9 +68,7 @@ function ProfileContent({ userId }: { userId: string }) {
           .maybeSingle()
           .then(({ data }: { data: unknown }) => setIsFollowing(!!data))
 
-    Promise.all([profilePromise, postsPromise, followPromise]).finally(() =>
-      setLoading(false)
-    )
+    Promise.all([profilePromise, followPromise]).finally(() => setProfileLoading(false))
   }, [userId, currentUser.id, isOwnProfile, supabase])
 
   async function handleToggleFollow() {
@@ -93,7 +95,8 @@ function ProfileContent({ userId }: { userId: string }) {
     }
   }
 
-  if (loading) {
+  // Show skeleton while profile metadata is loading
+  if (profileLoading) {
     return (
       <div className="min-h-screen bg-gray-50">
         <header className="sticky top-0 z-30 bg-white border-b border-gray-100">
@@ -116,10 +119,7 @@ function ProfileContent({ userId }: { userId: string }) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4 bg-gray-50">
         <p className="text-gray-400 text-sm">ユーザーが見つかりません</p>
-        <button
-          onClick={() => router.back()}
-          className="text-rose-500 text-sm font-medium"
-        >
+        <button onClick={() => router.back()} className="text-rose-500 text-sm font-medium">
           ← 戻る
         </button>
       </div>
@@ -128,7 +128,6 @@ function ProfileContent({ userId }: { userId: string }) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <header className="sticky top-0 z-30 bg-white border-b border-gray-100">
         <div className="max-w-md mx-auto px-4 py-3 flex items-center gap-3">
           <button
@@ -160,15 +159,15 @@ function ProfileContent({ userId }: { userId: string }) {
             </div>
             <p className="text-gray-400 text-sm">@{profile.username}</p>
             {profile.bio && (
-              <p className="text-gray-700 text-sm mt-2 leading-relaxed max-w-xs">
-                {profile.bio}
-              </p>
+              <p className="text-gray-700 text-sm mt-2 leading-relaxed max-w-xs">{profile.bio}</p>
             )}
           </div>
 
           <div className="flex gap-10 pt-1">
             <div className="text-center">
-              <p className="font-bold text-gray-900 text-base">{posts.length}</p>
+              <p className="font-bold text-gray-900 text-base">
+                {initialLoading ? "-" : posts.length}
+              </p>
               <p className="text-gray-400 text-xs">投稿</p>
             </div>
           </div>
@@ -196,16 +195,16 @@ function ProfileContent({ userId }: { userId: string }) {
         </div>
 
         {/* Posts */}
-        {posts.length === 0 ? (
+        {initialLoading ? (
+          <PostCardSkeletonList count={3} />
+        ) : posts.length === 0 ? (
           <div className="text-center py-16 text-gray-400 text-sm">
             <p className="text-3xl mb-3">💃</p>
             <p>まだ投稿がありません</p>
           </div>
         ) : (
           <div className="bg-white">
-            {posts.map((post) => (
-              <PostCard key={post.id} post={post} />
-            ))}
+            <Feed posts={posts} hasMore={hasMore} loading={loadingMore} onLoadMore={loadMore} />
           </div>
         )}
       </main>

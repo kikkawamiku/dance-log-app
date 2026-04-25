@@ -1,10 +1,8 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
 import { Post } from "@/lib/types"
 import { useCurrentUser } from "@/contexts/UserContext"
-import { createClient } from "@/lib/supabase/client"
-import { fetchFeedPage } from "@/lib/supabase/posts"
+import { useFeed } from "@/hooks/useFeed"
 import Feed from "@/components/Feed"
 import Fab from "@/components/Fab"
 import { PostCardSkeletonList } from "@/components/Skeleton"
@@ -17,49 +15,14 @@ interface Props {
 
 export default function FeedPage({ newPosts, onOpenCreate, followVersion }: Props) {
   const user = useCurrentUser()
-  const [posts, setPosts] = useState<Post[]>([])
-  const [hasMore, setHasMore] = useState(true)
-  const [loading, setLoading] = useState(false)
-  const [initialLoading, setInitialLoading] = useState(true)
-  const [loadError, setLoadError] = useState<string | null>(null)
-  const [cursor, setCursor] = useState<string | undefined>(undefined)
-
-  const supabase = createClient()
-
-  const loadPage = useCallback(
-    async (curCursor?: string) => {
-      if (!user) return
-      setLoading(true)
-      try {
-        const { posts: page, hasMore: more } = await fetchFeedPage(
-          supabase,
-          user.id,
-          curCursor
-        )
-        setLoadError(null)
-        setPosts((prev) => (curCursor ? [...prev, ...page] : page))
-        setHasMore(more)
-        if (page.length > 0) setCursor(page[page.length - 1].createdAt)
-      } catch (err) {
-        const msg = err instanceof Error
-          ? err.message
-          : JSON.stringify(err)
-        console.error("[FeedPage] Feed load error:", msg, err)
-        setLoadError(msg)
-      } finally {
-        setLoading(false)
-        setInitialLoading(false)
-      }
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [user?.id, followVersion]
+  const { posts, hasMore, initialLoading, loadingMore, error, loadMore } = useFeed(
+    user.id,
+    followVersion
   )
 
-  useEffect(() => {
-    loadPage()
-  }, [loadPage])
-
-  const allPosts = [...newPosts, ...posts]
+  // Merge session posts (immediately visible) with cached/fetched posts, dedup by id
+  const sessionIds = new Set(newPosts.map(p => p.id))
+  const allPosts = [...newPosts, ...posts.filter(p => !sessionIds.has(p.id))]
 
   return (
     <>
@@ -75,17 +38,11 @@ export default function FeedPage({ newPosts, onOpenCreate, followVersion }: Prop
       <main className="max-w-md mx-auto bg-white min-h-screen pb-24">
         {initialLoading ? (
           <PostCardSkeletonList count={5} />
-        ) : loadError ? (
+        ) : error ? (
           <div className="text-center py-16 px-6">
             <p className="text-2xl mb-3">⚠️</p>
             <p className="text-gray-500 text-sm font-medium mb-1">投稿の読み込みに失敗しました</p>
-            <p className="text-gray-400 text-xs break-all">{loadError}</p>
-            <button
-              onClick={() => { setLoadError(null); setInitialLoading(true); loadPage() }}
-              className="mt-4 text-rose-500 text-xs font-medium underline underline-offset-2"
-            >
-              再試行
-            </button>
+            <p className="text-gray-400 text-xs break-all">{error.message}</p>
           </div>
         ) : allPosts.length === 0 ? (
           <div className="text-center py-24 text-gray-400 text-sm">
@@ -97,8 +54,8 @@ export default function FeedPage({ newPosts, onOpenCreate, followVersion }: Prop
           <Feed
             posts={allPosts}
             hasMore={hasMore}
-            loading={loading}
-            onLoadMore={() => loadPage(cursor)}
+            loading={loadingMore}
+            onLoadMore={loadMore}
           />
         )}
       </main>

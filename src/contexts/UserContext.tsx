@@ -4,7 +4,7 @@ import { createContext, useContext, useState, useEffect, useRef, ReactNode } fro
 import { AuthChangeEvent, Session } from "@supabase/supabase-js"
 import { User } from "@/lib/types"
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client"
-import { ProfileRow, profileRowToUser } from "@/lib/supabase/db-types"
+import { ProfileRow, profileRowToUser, PROFILE_SELECT } from "@/lib/supabase/db-types"
 
 export interface UserProfile extends User {
   bio: string
@@ -111,7 +111,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       const t0 = Date.now()
       try {
         const result = await Promise.race([
-          supabase.from("profiles").select("*").eq("id", userId).single(),
+          supabase.from("profiles").select(PROFILE_SELECT).eq("id", userId).single(),
           new Promise<never>((_, reject) =>
             setTimeout(() => reject(new Error("TIMEOUT")), FETCH_TIMEOUT_MS)
           ),
@@ -189,7 +189,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         const { data, error } = await supabase
           .from("profiles")
           .insert({ id: userId, full_name: rawName, username })
-          .select("*")
+          .select(PROFILE_SELECT)
           .single()
 
         if (data) {

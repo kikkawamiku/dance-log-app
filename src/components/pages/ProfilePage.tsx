@@ -1,12 +1,10 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
 import { Post } from "@/lib/types"
 import { useCurrentUser } from "@/contexts/UserContext"
-import { createClient } from "@/lib/supabase/client"
-import { fetchUserPosts } from "@/lib/supabase/posts"
+import { useUserPostsInfinite } from "@/hooks/useUserPosts"
 import Avatar from "@/components/Avatar"
-import PostCard from "@/components/PostCard"
+import Feed from "@/components/Feed"
 import { PostCardSkeletonList } from "@/components/Skeleton"
 
 interface Props {
@@ -18,21 +16,14 @@ interface Props {
 
 export default function ProfilePage({ newPosts, following, onOpenEdit, onSignOut }: Props) {
   const user = useCurrentUser()
-  const supabase = useRef(createClient()).current
-  const [dbPosts, setDbPosts] = useState<Post[]>([])
-  const [loadingPosts, setLoadingPosts] = useState(true)
+  const { posts, hasMore, initialLoading, loadingMore, loadMore } = useUserPostsInfinite(
+    user.id,
+    user.id
+  )
 
-  useEffect(() => {
-    setLoadingPosts(true)
-    fetchUserPosts(supabase, user.id)
-      .then(setDbPosts)
-      .catch(err => console.error("[ProfilePage] posts fetch error:", err))
-      .finally(() => setLoadingPosts(false))
-  }, [user.id, supabase])
-
-  // Merge session posts with DB posts, dedup by id
-  const newPostIds = new Set(newPosts.map(p => p.id))
-  const allPosts = [...newPosts, ...dbPosts.filter(p => !newPostIds.has(p.id))]
+  // Merge session posts with cached DB posts, dedup by id
+  const sessionIds = new Set(newPosts.map(p => p.id))
+  const allPosts = [...newPosts, ...posts.filter(p => !sessionIds.has(p.id))]
 
   return (
     <>
@@ -57,7 +48,7 @@ export default function ProfilePage({ newPosts, following, onOpenEdit, onSignOut
       </header>
 
       <main className="max-w-md mx-auto pb-24">
-        {/* ── Profile header ── */}
+        {/* ── Profile header — instant from context ── */}
         <div className="bg-white px-4 py-8 flex flex-col items-center gap-3 border-b border-gray-100">
           <Avatar user={user} size="lg" />
 
@@ -73,20 +64,18 @@ export default function ProfilePage({ newPosts, following, onOpenEdit, onSignOut
             </div>
             <p className="text-gray-400 text-sm">@{user.username}</p>
             {user.bio && (
-              <p className="text-gray-700 text-sm mt-2 leading-relaxed max-w-xs">
-                {user.bio}
-              </p>
+              <p className="text-gray-700 text-sm mt-2 leading-relaxed max-w-xs">{user.bio}</p>
             )}
           </div>
 
           <div className="flex gap-10 pt-1">
-            <Stat value={loadingPosts ? "-" : String(allPosts.length)} label="投稿" />
+            <Stat value={initialLoading ? "-" : String(allPosts.length)} label="投稿" />
             <Stat value={String(following.size)} label="フォロー中" />
           </div>
         </div>
 
         {/* ── Posts ── */}
-        {loadingPosts ? (
+        {initialLoading ? (
           <PostCardSkeletonList count={3} />
         ) : allPosts.length === 0 ? (
           <div className="text-center py-16 text-gray-400 text-sm">
@@ -95,11 +84,7 @@ export default function ProfilePage({ newPosts, following, onOpenEdit, onSignOut
             <p className="mt-1">練習を記録してみよう</p>
           </div>
         ) : (
-          <div>
-            {allPosts.map((post) => (
-              <PostCard key={post.id} post={post} />
-            ))}
-          </div>
+          <Feed posts={allPosts} hasMore={hasMore} loading={loadingMore} onLoadMore={loadMore} />
         )}
       </main>
     </>

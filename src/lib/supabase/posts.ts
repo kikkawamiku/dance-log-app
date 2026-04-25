@@ -2,7 +2,8 @@ import { SupabaseClient } from "@supabase/supabase-js"
 import { Post } from "@/lib/types"
 import { PostRow, postRowToPost } from "./db-types"
 
-export const FEED_PAGE_SIZE = 8
+export const FEED_PAGE_SIZE = 10
+export const USER_POSTS_PAGE_SIZE = 10
 
 const POST_SELECT = `
   id, user_id, content, image_url, video_url, video_source,
@@ -78,6 +79,38 @@ export async function fetchUserPosts(
   }
 
   return ((data ?? []) as unknown as PostRow[]).map(row => postRowToPost(row, currentUserId))
+}
+
+// ── User posts (paginated) ────────────────────────────────────
+
+export async function fetchUserPostsPage(
+  supabase: SupabaseClient,
+  userId: string,
+  currentUserId?: string,
+  cursor?: string
+): Promise<{ posts: Post[]; hasMore: boolean }> {
+  let query = supabase
+    .from("posts")
+    .select(POST_SELECT)
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(USER_POSTS_PAGE_SIZE)
+
+  if (cursor) {
+    query = query.lt("created_at", cursor)
+  }
+
+  const { data, error } = await query
+  if (error) {
+    console.error("[fetchUserPostsPage] error:", error)
+    throw error
+  }
+
+  const rows = (data ?? []) as unknown as PostRow[]
+  return {
+    posts: rows.map(row => postRowToPost(row, currentUserId)),
+    hasMore: rows.length === USER_POSTS_PAGE_SIZE,
+  }
 }
 
 // ── Create ────────────────────────────────────────────────────
