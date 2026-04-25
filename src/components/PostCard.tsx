@@ -2,6 +2,8 @@
 
 import { useState, useRef } from "react"
 import Link from "next/link"
+import Image from "next/image"
+import { useRouter } from "next/navigation"
 import { Post } from "@/lib/types"
 import { useUser } from "@/contexts/UserContext"
 import { createClient } from "@/lib/supabase/client"
@@ -41,6 +43,7 @@ function formatMinutes(mins: number): string {
 export default function PostCard({ post }: { post: Post }) {
   const { user: currentUser } = useUser()
   const supabase = useRef(createClient()).current
+  const router = useRouter()
   const isOwner = currentUser?.id === post.user.id
 
   // Like state
@@ -113,7 +116,11 @@ export default function PostCard({ post }: { post: Post }) {
     <article className="relative bg-white border-b border-gray-100">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 pt-4 pb-3">
-        <Link href={`/profile/${post.user.id}`} className="flex items-center gap-3 flex-1 min-w-0">
+        <Link
+          href={`/profile/${post.user.id}`}
+          className="flex items-center gap-3 flex-1 min-w-0"
+          onMouseEnter={() => router.prefetch(`/profile/${post.user.id}`)}
+        >
           <Avatar user={post.user} />
           <div className="min-w-0">
             <p className="font-semibold text-gray-900 text-sm leading-tight">{post.user.name}</p>
@@ -233,13 +240,22 @@ export default function PostCard({ post }: { post: Post }) {
                 className={`w-full object-cover bg-gray-100 ${post.mediaUrls!.length === 1 ? "max-h-96" : "aspect-square"}`}
               />
             ) : (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+              <div
                 key={i}
-                src={url}
-                alt=""
-                className={`w-full object-cover bg-gray-100 ${post.mediaUrls!.length === 1 ? "max-h-96" : "aspect-square"}`}
-              />
+                className={`relative w-full bg-gray-100 ${post.mediaUrls!.length === 1 ? "aspect-[4/3]" : "aspect-square"}`}
+              >
+                <Image
+                  src={url}
+                  alt=""
+                  fill
+                  className="object-cover"
+                  sizes={
+                    post.mediaUrls!.length === 1
+                      ? "(max-width: 448px) 100vw, 448px"
+                      : "(max-width: 448px) 33vw, 149px"
+                  }
+                />
+              </div>
             )
           )}
         </div>

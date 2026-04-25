@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { User } from "@/lib/types"
 import { createClient } from "@/lib/supabase/client"
 import { profileRowToUser, ProfileRow, PROFILE_SELECT } from "@/lib/supabase/db-types"
@@ -131,9 +132,14 @@ function UserRow({
   isFollowing: boolean
   onToggle: () => void
 }) {
+  const router = useRouter()
   return (
     <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-50">
-      <Link href={`/profile/${user.id}`} className="flex items-center gap-3 flex-1 min-w-0">
+      <Link
+        href={`/profile/${user.id}`}
+        className="flex items-center gap-3 flex-1 min-w-0"
+        onMouseEnter={() => router.prefetch(`/profile/${user.id}`)}
+      >
         <Avatar user={user} />
         <div className="min-w-0">
           <p className="font-semibold text-gray-900 text-sm leading-tight">{user.name}</p>

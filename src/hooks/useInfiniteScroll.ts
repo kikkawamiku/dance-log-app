@@ -14,7 +14,7 @@ export function useInfiniteScroll(onLoadMore: () => void, hasMore: boolean) {
         (entries) => {
           if (entries[0].isIntersecting) onLoadMore()
         },
-        { rootMargin: "200px" }
+        { rootMargin: "600px" }
       )
       observerRef.current.observe(node)
     },

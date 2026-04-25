@@ -1,7 +1,8 @@
 "use client"
 
-import { useRef } from "react"
+import { useRef, useEffect } from "react"
 import useSWRInfinite from "swr/infinite"
+import { preload } from "swr"
 import { createClient } from "@/lib/supabase/client"
 import { fetchFeedPage, FEED_PAGE_SIZE } from "@/lib/supabase/posts"
 import { Post } from "@/lib/types"
@@ -41,6 +42,19 @@ export function useFeed(userId: string, followVersion: number) {
   const hasMore = data ? (data.at(-1)?.hasMore ?? false) : true
   const initialLoading = !data && isLoading
   const loadingMore = isLoading && size > 1
+
+  // Preload next page into SWR cache as soon as the current last page is available
+  useEffect(() => {
+    if (!data || data.length === 0) return
+    const lastPage = data.at(-1)
+    if (!lastPage?.hasMore) return
+    const lastPost = lastPage.posts.at(-1)
+    if (!lastPost) return
+    const nextKey: FeedKey = ["feed", userId, followVersion, lastPost.createdAt] as const
+    preload(nextKey, ([, , , cursor]: FeedKey) =>
+      fetchFeedPage(supabase, userId, cursor || undefined)
+    )
+  }, [data, userId, followVersion, supabase])
 
   return {
     posts,

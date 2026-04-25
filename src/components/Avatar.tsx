@@ -1,3 +1,7 @@
+"use client"
+
+import { useState } from "react"
+import Image from "next/image"
 import { User } from "@/lib/types"
 
 const COLORS = [
@@ -18,23 +22,28 @@ const SIZE_CLASSES: Record<Size, string> = {
   lg: "w-14 h-14 text-xl",
 }
 
+const SIZE_PX: Record<Size, number> = {
+  sm: 32,
+  md: 40,
+  lg: 56,
+}
+
 export default function Avatar({ user, size = "md" }: { user: User; size?: Size }) {
+  const [imgError, setImgError] = useState(false)
   const color = COLORS[user.id.charCodeAt(user.id.length - 1) % COLORS.length]
   const sizeClass = SIZE_CLASSES[size]
+  const px = SIZE_PX[size]
 
-  if (user.avatarUrl) {
+  if (user.avatarUrl && !imgError) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
+      <Image
         src={user.avatarUrl}
         alt={user.name}
+        width={px}
+        height={px}
+        sizes={`${px}px`}
         className={`${sizeClass} rounded-full object-cover flex-shrink-0`}
-        onError={(e) => {
-          // Fall back to initials on broken URL
-          const el = e.currentTarget
-          el.style.display = "none"
-          el.nextElementSibling?.removeAttribute("hidden")
-        }}
+        onError={() => setImgError(true)}
       />
     )
   }

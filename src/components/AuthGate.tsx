@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { useUser } from "@/contexts/UserContext"
 import AuthModal from "@/components/auth/AuthModal"
+import { PostCardSkeletonList } from "@/components/Skeleton"
 
 /**
  * Render children only when both session AND user profile are ready.
@@ -18,7 +19,7 @@ import AuthModal from "@/components/auth/AuthModal"
 export default function AuthGate({ children }: { children: React.ReactNode }) {
   const { user, session, loading, profilePending, authError, signOut } = useUser()
 
-  if (loading) return <Splash message="読み込み中..." signOut={signOut} />
+  if (loading) return <AppShellSkeleton signOut={signOut} />
 
   // authError with user = fallback mode (DB timeout but auth metadata available).
   // Show a dismissible banner inside the app rather than blocking entirely.
@@ -58,6 +59,68 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   if (!session || !user) return <AuthModal />
 
   return <>{children}</>
+}
+
+// Shown during the initial auth check — renders the app shell immediately
+// so the screen never goes fully white on reload.
+function AppShellSkeleton({ signOut }: { signOut: () => Promise<void> }) {
+  const [showLogout, setShowLogout] = useState(false)
+
+  useEffect(() => {
+    const t = setTimeout(() => setShowLogout(true), 5_000)
+    return () => clearTimeout(t)
+  }, [])
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="sticky top-0 z-30 bg-white border-b border-gray-100">
+        <div className="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
+          <h1 className="text-lg font-bold text-gray-900 tracking-tight">
+            dance<span className="text-rose-500">log</span>
+          </h1>
+          <div className="w-5 h-5 border-2 border-rose-300 border-t-rose-500 rounded-full animate-spin" />
+        </div>
+      </header>
+
+      {/* Content skeleton */}
+      <main className="max-w-md mx-auto bg-white min-h-screen pb-24">
+        <PostCardSkeletonList count={5} />
+      </main>
+
+      {/* Bottom nav skeleton */}
+      <nav className="fixed bottom-0 inset-x-0 bg-white border-t border-gray-100 z-40">
+        <div className="max-w-md mx-auto flex items-center justify-around px-2 py-2 pb-[env(safe-area-inset-bottom,8px)]">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="flex flex-col items-center gap-0.5 flex-1 py-1">
+              <div className="w-5 h-5 bg-gray-100 rounded animate-pulse" />
+              <div className="w-8 h-2 bg-gray-100 rounded-full animate-pulse" />
+            </div>
+          ))}
+        </div>
+      </nav>
+
+      {/* Escape hatch after 5s */}
+      {showLogout && (
+        <div className="fixed bottom-20 inset-x-0 flex justify-center z-50">
+          <div className="flex gap-4 bg-white/90 backdrop-blur-sm rounded-full px-5 py-2.5 shadow-sm border border-gray-100">
+            <button
+              onClick={() => window.location.reload()}
+              className="text-rose-500 text-xs font-medium"
+            >
+              再読み込み
+            </button>
+            <button
+              onClick={async () => { await signOut(); window.location.reload() }}
+              className="text-gray-400 text-xs"
+            >
+              ログアウト
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 function Splash({
